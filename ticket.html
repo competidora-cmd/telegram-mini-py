@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Городской Транспорт</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background: #fff;
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        .timer {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 400;
+            margin: 16px 0;
+            color: #000;
+        }
+
+        .ticket-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0;
+            margin-bottom: 0;
+            position: relative;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .ticket-number {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 50%;
+            padding: 16px;
+            position: relative;
+            border-bottom: 2px solid #E31E24;
+        }
+
+        .ticket-number svg {
+            width: 24px;
+            height: 24px;
+            color: #E31E24;
+        }
+
+        .ticket-number span {
+            font-size: 20px;
+            font-weight: 500;
+            color: #E31E24;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .control-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 50%;
+            justify-content: center;
+            color: #8E8E93;
+            cursor: pointer;
+            padding: 16px;
+            position: relative;
+        }
+
+        .control-section svg {
+            width: 24px;
+            height: 24px;
+            color: #000000;
+        }
+
+        .control-section span {
+            font-size: 17px;
+            font-weight: 400;
+            color: #000000;
+        }
+
+        .control-section.active {
+            color: #000;
+            border-bottom: 2px solid #E31E24;
+        }
+
+        .control-section.active svg,
+        .control-section.active span {
+            color: #000;
+        }
+
+        .content-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 16px;
+            margin-bottom: 80px;
+        }
+
+        .qr-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .qr-title {
+            font-size: 17px;
+            font-weight: 400;
+            color: #000;
+            margin-bottom: 24px;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            margin: 16px;
+            width: 100%;
+            max-width: 300px;
+            position: relative;
+        }
+
+        .qr-code {
+            width: 100%;
+            height: auto;
+            margin-bottom: 16px;
+            display: block;
+        }
+
+        .qr-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: none;
+            border: none;
+            color: #8E8E93;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: flex-start;
+            padding: 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            min-height: 80px;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-row svg {
+            width: 24px;
+            height: 24px;
+            color: #000;
+            flex-shrink: 0;
+            margin-right: 12px;
+            margin-top: 2px;
+        }
+
+        .info-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .info-label {
+            font-size: 17px;
+            color: #8E8E93;
+            margin-bottom: 6px;
+            line-height: 1.2;
+        }
+
+        .info-value {
+            font-size: 23px;
+            color: #000;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+
+        .route-info {
+            font-size: 17px;
+            color: #8E8E93;
+            margin-bottom: 6px;
+            line-height: 1.2;
+        }
+
+        .vehicle-number {
+            font-size: 22px;
+            color: #000;
+            font-weight: 500;
+            line-height: 1.2;
+        }
+
+        .close-button {
+            position: fixed;
+            bottom: calc(28px + env(safe-area-inset-bottom));
+            left: 16px;
+            right: 16px;
+            background: #E31E24;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 2;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .bottom-background {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: calc(100px + env(safe-area-inset-bottom));
+            background: #F7F7F7;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+
+        @supports not (env(safe-area-inset-bottom)) {
+            .close-button {
+                bottom: 21px;
+            }
+
+            .bottom-background {
+                height: 80px;
+            }
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 10px;
+            color: #8E8E93;
+            font-size: 14px;
+            margin-bottom: 80px;
+        }
+
+        .carrier {
+            color: #8E8E93;
+            margin-bottom: 12px;
+        }
+
+        .cost {
+            color: #000;
+            margin-bottom: 12px;
+        }
+
+        .cost .info-label {
+            color: #8E8E93;
+        }
+
+        .cost .info-value {
+            color: #000;
+            font-weight: 500;
+        }
+
+        .route-number {
+            color: #8E8E93;
+            margin-bottom: 12px;
+        }
+
+        .vehicle {
+            color: #000;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .ticket-info {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .route-number {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .route-number span {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .carrier {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .carrier span {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .vehicle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .vehicle span {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .cost {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .cost .info-label {
+            font-size: 17px;
+            color: #8E8E93;
+        }
+
+        .cost .info-value {
+            font-size: 23px;
+            color: #000;
+            font-weight: 100;
+        }
+
+        #cost {
+            font-size: 23px;
+            font-weight: 500;
+        }
+
+        .ticket-content {
+            padding: 20px;
+        }
+
+        .ticket-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .ticket-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .ticket-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .ticket-label {
+            color: #8E8E93;
+            font-size: 17px;
+            margin-bottom: 4px;
+        }
+
+        .ticket-value {
+            color: #000;
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .ticket-route {
+            font-size: 20px;
+            color: #8E8E93;
+        }
+
+        .ticket-vehicle {
+            font-size: 24px;
+            color: #000;
+            font-weight: 500;
+        }
+
+        .ticket-cost {
+            font-size: 23px;
+            font-weight: 500;
+        }
+
+        .ticket-date, .ticket-time {
+            font-size: 23px;
+            font-weight: 500;
+        }
+    </style>
+    
+</head>
+<body>
+    <div class="timer" id="timer">Действует: 15 сек.</div>
+
+    <div class="ticket-header">
+        <div class="ticket-number">
+            <svg viewBox="0 0 576 512">
+                <path fill="currentColor" d="M320 48H63.1C55.16 48 47.1 55.16 47.1 64V448C47.1 456.8 55.16 464 63.1 464H284.5C296.5 482.4 311.9 498.5 329.7 511.3C326.6 511.7 323.3 512 320 512H64C28.65 512 0 483.3 0 448V64C0 28.65 28.65 0 64 0H320C355.3 0 384 28.65 384 64V198.6C366.8 203.5 350.6 210.9 336 220.5V63.1C336 55.16 328.8 47.1 320 47.1L320 48zM95.1 152C95.1 138.7 106.7 128 119.1 128H263.1C277.3 128 287.1 138.7 287.1 152C287.1 165.3 277.3 176 263.1 176H119.1C106.7 176 95.1 165.3 95.1 152zM263.1 224C277.3 224 287.1 234.7 287.1 248C287.1 261.3 277.3 272 263.1 272H119.1C106.7 272 95.1 261.3 95.1 248C95.1 234.7 106.7 224 119.1 224H263.1zM167.1 320C181.3 320 191.1 330.7 191.1 344C191.1 357.3 181.3 368 167.1 368H119.1C106.7 368 95.1 357.3 95.1 344C95.1 330.7 106.7 320 119.1 320H167.1zM576 368C576 447.5 511.5 512 432 512C352.5 512 287.1 447.5 287.1 368C287.1 288.5 352.5 224 432 224C511.5 224 576 288.5 576 368zM476.7 324.7L416 385.4L387.3 356.7C381.1 350.4 370.9 350.4 364.7 356.7C358.4 362.9 358.4 373.1 364.7 379.3L404.7 419.3C410.9 425.6 421.1 425.6 427.3 419.3L499.3 347.3C505.6 341.1 505.6 330.9 499.3 324.7C493.1 318.4 482.9 318.4 476.7 324.7H476.7z"/>
+            </svg>
+            <span id="ticket-number"></span>
+        </div>
+        <div class="control-section">
+            <svg viewBox="0 0 512 512">
+                <path fill="currentColor" d="M319.7 352.5L224 416l-95.7-63.49C57.05 355.2 0 413.4 0 485.3C0 500.1 11.94 512 26.66 512H421.3C436.1 512 448 500.1 448 485.3C448 413.4 390.1 355.2 319.7 352.5zM50.69 464c8.043-31.21 33.37-55.43 65.56-61.89L209.5 464H50.69zM238.5 464l93.28-61.89c32.19 6.461 57.52 30.68 65.56 61.89H238.5zM78.54 102.4v44.04C119.1 164.9 169.4 176 224 176s104.9-11.08 145.5-29.55V102.4l21.96-22.3c4.564-4.635 7.129-10.93 7.129-17.48c0-11.35-7.602-21.24-18.44-23.99l-148.3-37.67c-5.096-1.295-10.43-1.295-15.52 0l-148.3 37.67C57.06 41.39 49.46 51.28 49.46 62.62c0 6.555 2.564 12.85 7.129 17.48L78.54 102.4zM161.7 72.85c3.969-7.875 13.56-11.09 21.47-7.156L224 86.13l40.84-20.44c7.938-3.969 17.5-.7505 21.47 7.156c3.938 7.906 .75 17.5-7.156 21.47l-48 23.1C228.9 119.4 226.4 120 224 120S219.1 119.4 216.8 118.3l-48-23.1C160.9 90.35 157.8 80.75 161.7 72.85zM224 272c-41.23 0-74.9-31.51-79.15-71.64C128.1 197.1 112 192.8 96.45 187.5C96.4 189.1 96 190.5 96 192c0 70.69 57.31 128 127.1 128s127.1-57.31 127.1-128c0-1.525-.358-2.941-.4108-4.453C336 192.8 319.9 197.1 303.2 200.4C298.9 240.5 265.2 272 224 272z"/>
+            </svg>
+            <span>Контроль</span>
+        </div>
+    </div>
+
+    <div class="content-container">
+        <div class="info-row">
+            <svg viewBox="0 0 512 512">
+                <path fill="currentColor" d="M319.7 352.5L224 416l-95.7-63.49C57.05 355.2 0 413.4 0 485.3C0 500.1 11.94 512 26.66 512H421.3C436.1 512 448 500.1 448 485.3C448 413.4 390.1 355.2 319.7 352.5zM50.69 464c8.043-31.21 33.37-55.43 65.56-61.89L209.5 464H50.69zM238.5 464l93.28-61.89c32.19 6.461 57.52 30.68 65.56 61.89H238.5zM78.54 102.4v44.04C119.1 164.9 169.4 176 224 176s104.9-11.08 145.5-29.55V102.4l21.96-22.3c4.564-4.635 7.129-10.93 7.129-17.48c0-11.35-7.602-21.24-18.44-23.99l-148.3-37.67c-5.096-1.295-10.43-1.295-15.52 0l-148.3 37.67C57.06 41.39 49.46 51.28 49.46 62.62c0 6.555 2.564 12.85 7.129 17.48L78.54 102.4zM161.7 72.85c3.969-7.875 13.56-11.09 21.47-7.156L224 86.13l40.84-20.44c7.938-3.969 17.5-.7505 21.47 7.156c3.938 7.906 .75 17.5-7.156 21.47l-48 23.1C228.9 119.4 226.4 120 224 120S219.1 119.4 216.8 118.3l-48-23.1C160.9 90.35 157.8 80.75 161.7 72.85zM224 272c-41.23 0-74.9-31.51-79.15-71.64C128.1 197.1 112 192.8 96.45 187.5C96.4 189.1 96 190.5 96 192c0 70.69 57.31 128 127.1 128s127.1-57.31 127.1-128c0-1.525-.358-2.941-.4108-4.453C336 192.8 319.9 197.1 303.2 200.4C298.9 240.5 265.2 272 224 272z"/>
+            </svg>
+            <div class="info-content">
+                <div class="info-label">Перевозчик</div>
+                <div class="info-value" id="carrier"></div>
+            </div>
+        </div>
+
+        <div class="info-row">
+            <svg viewBox="0 0 544 512">
+                <path fill="currentColor" d="M144 336C144 318.3 158.3 304 176 304C193.7 304 208 318.3 208 336C208 353.7 193.7 368 176 368C158.3 368 144 353.7 144 336zM368 336C368 318.3 382.3 304 400 304C417.7 304 432 318.3 432 336C432 353.7 417.7 368 400 368C382.3 368 368 353.7 368 336zM74.2 70.03C99.86 38.75 167.8 0 288 0C416.6 0 478 38.63 502.4 70.55C509.9 80.32 512 91.48 512 100.4V128C529.7 128 544 142.3 544 160V224C544 241.7 529.7 256 512 256V376C512 400.1 499.3 422.1 480 435.9V488C480 501.3 469.3 512 456 512C442.7 512 432 501.3 432 488V448H144V488C144 501.3 133.3 512 120 512C106.7 512 96 501.3 96 488V435.9C76.7 422.1 64 400.1 64 376V256C46.33 256 32 241.7 32 224V160C32 142.3 46.33 128 64 128V100.4C64 91.58 66.05 79.97 74.2 70.03zM363.7 96H461.2C445.4 78.89 399.2 48 288 48C185.8 48 133.8 78.27 115.5 96H212.3C217.8 86.44 228.2 80 240 80H336C347.8 80 358.2 86.44 363.7 96zM464 144H312V224H464V144zM112 224H264V144H112V224zM112 272V376C112 389.3 122.7 400 136 400H440C453.3 400 464 389.3 464 376V272H112z"/>
+            </svg>
+            <div class="info-content">
+                <div class="route-info" id="route"></div>
+                <div class="vehicle-number" id="vehicle"></div>
+            </div>
+        </div>
+
+        <div class="info-row">
+            <svg viewBox="0 0 384 512">
+                <path fill="currentColor" d="M240 32C319.5 32 384 96.47 384 176C384 255.5 319.5 320 240 320H112V368H296C309.3 368 320 378.7 320 392C320 405.3 309.3 416 296 416H112V456C112 469.3 101.3 480 88 480C74.75 480 64 469.3 64 456V416H24C10.75 416 0 405.3 0 392C0 378.7 10.75 368 24 368H64V320H24C10.75 320 0 309.3 0 296C0 282.7 10.75 272 24 272H64V79.31C64 53.18 85.18 32 111.3 32H240zM336 176C336 122.1 293 80 240 80H112V272H240C293 272 336 229 336 176z"/>
+            </svg>
+            <div class="info-content">
+                <div class="info-label">Стоимость</div>
+                <div class="info-value" id="cost"></div>
+            </div>
+        </div>
+
+        <div class="info-row">
+            <svg viewBox="0 0 48 48">
+                <path fill="currentColor" d="M38 6h-2v-4h-4v4h-16v-4h-4v4h-2c-2.21 0-3.98 1.79-3.98 4l-.02 28c0 2.21 1.79 4 4 4h28c2.21 0 4-1.79 4-4v-28c0-2.21-1.79-4-4-4zm0 32h-28v-22h28v22zm-24-18h10v10h-10z"/>
+            </svg>
+            <div class="info-content">
+                <div class="info-label">Дата покупки</div>
+                <div class="info-value" id="purchase-date"></div>
+            </div>
+        </div>
+
+        <div class="info-row">
+            <svg viewBox="0 0 24 24">
+                <path d="M12 7V12H15M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <div class="info-content">
+                <div class="info-label">Время покупки</div>
+                <div class="info-value" id="purchase-time"></div>
+            </div>
+        </div>
+        
+    </div>
+
+    <div class="bottom-background"></div>
+    <button class="close-button" onclick="closeMiniApp()">ЗАКРЫТЬ</button>
+
+    <div class="qr-overlay" id="qrOverlay">
+        <div class="qr-container">
+            <div class="qr-title">Отсканируйте QR-код для проверки</div>
+            <div id="qrCode" class="qr-code"></div>
+            <button class="qr-close" onclick="hideQR()">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // Функция закрытия mini-apps
+        function closeMiniApp() {
+            tg.close();
+        }
+
+        // Получаем параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Функция для форматирования номера билета в формате XXX XXX XXX
+        function formatTicketNumber(number) {
+            if (!number) return '';
+            // Удаляем все пробелы, если они есть
+            let cleaned = number.toString().replace(/\s/g, '');
+            // Проверяем, начинается ли номер с одного из допустимых префиксов
+            const prefix = parseInt(cleaned.substring(0, 3));
+            if (![972, 973, 974].includes(prefix)) {
+                cleaned = '972' + cleaned.substring(3);
+            }
+            // Дополняем до 9 цифр нулями если нужно
+            cleaned = cleaned.padStart(9, '0');
+            // Форматируем в виде XXX XXX XXX
+            return cleaned.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+        }
+        
+        // Функция для форматирования даты
+        function formatDate(date) {
+            const day = date.getDate().toString().padStart(2, '0');
+            const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            return `${day} ${month} ${year} г.`;
+        }
+
+        // Функция для форматирования времени
+        function formatTime(date) {
+            return date.toTimeString().slice(0, 5);
+        }
+
+        // Заполняем данные билета только из параметров URL
+        let ticketCode = urlParams.get('code');
+        if (!ticketCode) {
+            // Если код не предоставлен, генерируем случайный с одним из префиксов
+            const prefixes = [972, 973, 974];
+            const randomPrefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+            const min = randomPrefix * 1000000;
+            const max = min + 999999;
+            ticketCode = Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        document.getElementById('ticket-number').textContent = formatTicketNumber(ticketCode);
+        document.getElementById('carrier').textContent = urlParams.get('carrier');
+        
+        // Форматируем отображение маршрута: номер автобуса, маршрут
+        const routeNumber = urlParams.get('routeNumber');
+        const route = urlParams.get('route');
+        document.getElementById('route').textContent = routeNumber ? `${routeNumber}, ${route}` : route;
+        
+        document.getElementById('vehicle').textContent = urlParams.get('vehicle');
+        
+        // Для стоимости используем параметр из URL или оставляем пустым
+        if (urlParams.get('cost')) {
+            const quantity = parseInt(urlParams.get('quantity') || 1);
+            const cost = parseFloat(urlParams.get('cost')).toFixed(2);
+            document.getElementById('cost').textContent = `${quantity} шт., Полный, ${cost}₽`;
+        }
+        
+        // Устанавливаем текущую дату и время
+        const now = new Date();
+        document.getElementById('purchase-date').textContent = formatDate(now);
+        document.getElementById('purchase-time').textContent = formatTime(now);
+
+        // Создаем QR-код при нажатии на "Контроль"
+        const controlSection = document.querySelector('.control-section');
+        const ticketNumber = document.querySelector('.ticket-number');
+        const qrOverlay = document.getElementById('qrOverlay');
+        let qrCode = null;
+
+        // Функция для показа QR-кода
+        function showQR(e) {
+            // Prevent any default behavior
+            e.preventDefault();
+            
+            if (!qrCode) {
+                const quantity = parseInt(urlParams.get('quantity') || 1);
+                const cost = parseFloat(urlParams.get('cost')).toFixed(2);
+                
+                const qrData = {
+                    ticket: urlParams.get('code'),
+                    timestamp: Date.now(),
+                    hash: generateRandomString(32),
+                    vehicle: urlParams.get('vehicle'),
+                    route: route,
+                    routeNumber: routeNumber,
+                    quantity: quantity,
+                    cost: cost
+                };
+
+                // Clear previous QR code if exists
+                const qrElement = document.getElementById("qrCode");
+                qrElement.innerHTML = '';
+
+                qrCode = new QRCode(qrElement, {
+                    text: JSON.stringify(qrData),
+                    width: 256,
+                    height: 256,
+                    colorDark: "#000000",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            }
+            qrOverlay.style.display = 'flex';
+            controlSection.classList.add('active');
+            ticketNumber.classList.remove('active');
+        }
+
+        // Функция для генерации случайной строки
+        function generateRandomString(length) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // Добавляем обработчик события напрямую
+        controlSection.addEventListener('click', showQR);
+        controlSection.addEventListener('touchend', showQR);
+
+        function hideQR(e) {
+            if (e) e.preventDefault();
+            qrOverlay.style.display = 'none';
+            controlSection.classList.remove('active');
+            ticketNumber.classList.add('active');
+        }
+
+        // Закрыть QR при клике вне контейнера
+        qrOverlay.addEventListener('click', (e) => {
+            if (e.target === qrOverlay) {
+                hideQR();
+            }
+        });
+
+        qrOverlay.addEventListener('touchend', (e) => {
+            if (e.target === qrOverlay) {
+                hideQR();
+            }
+        });
+
+        // Активируем вкладку с билетом по умолчанию
+        ticketNumber.classList.add('active');
+
+        // Запускаем таймер
+        let timeLeft = 15;
+        const timerElement = document.getElementById('timer');
+        
+        function updateTimer() {
+            timerElement.textContent = `Действует: ${timeLeft} сек.`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                closeMiniApp();
+                return;
+            }
+            timeLeft--;
+        }
+
+        // Обновляем таймер сразу и запускаем интервал
+        updateTimer();
+        const timerInterval = setInterval(updateTimer, 1000);
+        
+        // Устанавливаем имя бота в футере
+        document.getElementById('botUsername').textContent = `@${botUsername}`;
+    </script>
+</body>
+</html>
